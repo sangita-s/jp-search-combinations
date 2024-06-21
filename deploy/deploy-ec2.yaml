@@ -1,0 +1,121 @@
+Parameters:
+  EC2Type:
+    Description: Type of instance
+    Type: String
+    Default: t3.medium
+    AllowedValues:
+    - t3.micro
+    - t3.small
+    - t3.medium
+    - t3.large
+
+Resources:
+  VirtualPrivateCloud:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 172.16.0.0/16
+      Tags:
+      - Key: "Name"
+        Value: "jp-search-combinations-vpc"
+  Subnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VirtualPrivateCloud
+      CidrBlock: 172.16.1.0/28
+      AvailabilityZone: ap-northeast-1a
+      Tags:
+      - Key: "Name"
+        Value: "jp-search-combinations-subnet"
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: "Name"
+        Value: "jp-search-combinations-igw"
+  AttachGateaway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VirtualPrivateCloud
+      InternetGatewayId: !Ref InternetGateway
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VirtualPrivateCloud
+      Tags:
+      - Key: "Name"
+        Value: "CFN Route"
+  Route:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref RouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+  SubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref Subnet
+      RouteTableId: !Ref RouteTable
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow SSH HTTP
+      SecurityGroupIngress:
+      - CidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+      - CidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+      VpcId: !Ref VirtualPrivateCloud
+      Tags:
+      - Key: "Name"
+        Value: "CFN SG"
+  KeyPair:
+    Type: AWS::EC2::KeyPair
+    Properties:
+      KeyName: local-machine-key
+      PublicKeyMaterial: <PUBLIC_KEY>
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref EC2Type
+      AvailabilityZone: ap-northeast-1a
+      ImageId: "ami-0f9fe1d9214628296"
+      KeyName: "local-machine-key"
+      BlockDeviceMappings:
+      - DeviceName: "/dev/xvda"
+        Ebs:
+          DeleteOnTermination: "true"
+          VolumeSize: "8"
+          VolumeType: "gp2"
+      NetworkInterfaces:
+      - AssociatePublicIpAddress: "true"
+        DeleteOnTermination: "true"
+        DeviceIndex: 0
+        SubnetId: !Ref Subnet
+        GroupSet:
+          - Ref: SecurityGroup
+      UserData:
+        Fn::Base64:
+          !Sub |
+            #!/bin/bash
+            yum update -y
+            yum install -y docker git
+            systemctl enable docker.service
+            systemctl start docker.service
+            wget https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m) 
+            mv docker-compose-$(uname -s)-$(uname -m) /usr/local/bin/docker-compose
+            chmod -v +x /usr/local/bin/docker-compose
+            git clone https://github.com/aankittcoolest/jp-search-combinations.git
+            cd jp-search-combinations
+            docker-compose up -d
+      Tags:
+      - Key: "Name"
+        Value: "CFN Instance"
+
+Outputs:
+  EC2IpAddress:
+    Description: "EC2 Public IP Address"
+    Value: !GetAtt EC2Instance.PublicIp

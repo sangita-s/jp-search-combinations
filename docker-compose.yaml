@@ -1,0 +1,8 @@
+services:
+  code:
+    platform: linux/amd64
+    build: .
+    volumes:
+      - ./src:/usr/src/app
+    ports:
+      - 80:80
