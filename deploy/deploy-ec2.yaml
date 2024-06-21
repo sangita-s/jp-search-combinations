@@ -108,7 +108,7 @@ Resources:
             wget https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m) 
             mv docker-compose-$(uname -s)-$(uname -m) /usr/local/bin/docker-compose
             chmod -v +x /usr/local/bin/docker-compose
-            git clone https://github.com/aankittcoolest/jp-search-combinations.git
+            git clone https://github.com/sangita-s/jp-search-combinations.git
             cd jp-search-combinations
             docker-compose up -d
       Tags:
